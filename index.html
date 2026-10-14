@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Case Study — Yao Guan</title>
+
+<!-- =============================================================
+     FONTS — Bricolage Grotesque (display/body) + IBM Plex Mono (labels)
+     Needs internet on first open.
+     ============================================================= -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================================
+   THEME — Substation Blueprint
+   Change these variables to re-colour the whole deck.
+   Teal = information / actors. Amber = material / the thing that matters.
+   =========================================================== */
+:root {
+    --bg: #0E1B33;            /* navy */
+    --panel: #15264A;         /* raised navy */
+    --ink: #F3F1EA;           /* warm white text */
+    --mute: #8FA0BF;          /* secondary text, grid dots */
+    --teal: #19B39A;
+    --amber: #F2A33A;
+    --xx: #FF7A70;            /* placeholder marker: replace every XX */
+    --paper: #ffffff;         /* behind your diagrams */
+
+    --font-display: 'Bricolage Grotesque', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    --stage-bg: #05080f;      /* letterbox colour */
+    --slide-bg: #0E1B33;
+
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES (viewport-base.css)
+   Slides are authored at 1920×1080 and scaled as a whole.
+   =========================================================== */
+
+/* 1. Lock the browser viewport */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+/* 2. Full-window deck viewport */
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+/* 3. Fixed 16:9 design canvas.
+   JavaScript sets transform: translate(...) scale(...). */
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--slide-bg, #fff);
+}
+
+/* 4. Slides stack inside the fixed stage.
+   Content must be laid out at 1920×1080, not reflowed per device. */
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+
+/* 5. Keep media inside authored slide bounds */
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* 6. Presentation chrome stays outside the slide design system */
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+
+/* 7. Print one fixed-size slide per page */
+@media print {
+    html,
+    body {
+        width: 1920px;
+        height: auto;
+        overflow: visible;
+        background: #fff;
+    }
+
+    .deck-viewport {
+        position: static;
+        overflow: visible;
+        background: #fff;
+    }
+
+    .deck-stage {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none !important;
+        background: none;
+    }
+
+    .slide {
+        position: relative;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 1920px;
+        height: 1080px;
+        break-after: page;
+        page-break-after: always;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .slide:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .deck-controls {
+        display: none !important;
+    }
+
+    .reveal { opacity: 1 !important; transform: none !important; }
+    .draw { stroke-dashoffset: 0 !important; }
+}
+
+/* 8. Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+}
+
+/* ===========================================================
+   SLIDE FOUNDATION — blueprint grid, chrome, type scale
+   =========================================================== */
+.slide {
+    font-family: var(--font-display);
+    color: var(--ink);
+    background:
+        radial-gradient(1200px 700px at 82% 38%, #1b3262 0%, transparent 62%),
+        var(--bg);
+}
+
+/* Blueprint dot grid behind every slide */
+.slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(143, 160, 191, 0.26) 2px, transparent 2.5px);
+    background-size: 60px 60px;
+    pointer-events: none;
+}
+
+/* Everything absolutely positioned on the 1920×1080 canvas */
+.abs { position: absolute; }
+
+/* Top chrome (injected by JS on every slide except the title and close) */
+.chrome { position: absolute; left: 120px; right: 120px; top: 0; height: 110px; z-index: 2; }
+.chrome .label,
+.chrome .count {
+    position: absolute;
+    top: 48px;
+    font: 500 22px/1 var(--font-mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+.chrome .label { left: 0; right: 0; text-align: center; color: var(--teal); }
+.trk { position: absolute; left: 50%; top: 46px; width: 1080px; margin-left: -540px; display: flex; z-index: 3; }
+.trk .seg { flex: 1; text-align: center; padding: 0 0 26px; border-bottom: 4px solid transparent; font: 500 20px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: rgba(143, 160, 191, 0.7); }
+.trk .seg { cursor: pointer; transition: color 0.15s; }
+.trk .seg:hover { color: var(--ink); }
+.trk .seg.on { border-bottom-color: var(--amber); color: var(--amber); }
+.chrome .count { right: 0; color: var(--mute); }
+.pgn { position: absolute; right: 120px; top: 48px; font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); z-index: 2; pointer-events: none; }
+.chrome .bar { position: absolute; left: 0; right: 0; top: 94px; border-top: 3px dashed rgba(25, 179, 154, 0.55); }
+
+/* Kicker: mono label with a node dot */
+.kick {
+    font: 500 24px/1 var(--font-mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+.kick::before { content: ''; width: 18px; height: 18px; border-radius: 50%; background: var(--teal); flex: none; }
+
+/* Display type */
+.h-xl { font: 800 270px/0.88 var(--font-display); letter-spacing: -0.03em; }
+.h-l  { font: 800 150px/0.92 var(--font-display); letter-spacing: -0.028em; }
+.h-m  { font: 800 112px/0.96 var(--font-display); letter-spacing: -0.025em; }
+.hl   { color: var(--amber); }
+
+/* Placeholder marker — replace every XX before the interview */
+.xx { color: var(--xx); }
+
+/* Reveal animation: slide gets .visible, children fade up in sequence */
+.reveal {
+    opacity: 0;
+    transform: translateY(36px);
+    transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+    transition-delay: var(--d, 0s);
+}
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+
+/* Appendix (from the Appendix divider on): everything stands still, no entrance animation */
+[data-still] .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+[data-still] .draw { stroke-dashoffset: 0 !important; transition: none !important; }
+[data-still] .dash { animation: none !important; }
+
+/* Build steps: elements with data-step stay hidden until the presenter
+   advances to that step (next key / swipe). Slide 5 uses this.
+   Everything in a step appears INSTANTLY (no fade, no drawing, no delay). */
+.build, .mk, .ah, .fd { transition: none !important; }
+.build { opacity: 0; }
+.build.on { opacity: 1; }
+/* Connector layers: lines are masked until their step is on, then shown at once */
+.flow.build, .flow.build.on { opacity: 1; }
+.mk { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+.on .mk { stroke-dashoffset: 0; }
+.ah, .fd { opacity: 0; }
+.on .ah, .on .fd { opacity: 1; }
+body.editing .build:not([data-until]) { opacity: 1; }
+body.editing .mk { stroke-dashoffset: 0; }
+body.editing .ah, body.editing .fd { opacity: 1; }
+
+/* Framed diagram / screenshot: white paper on the navy canvas */
+.shot {
+    display: block;
+    background: var(--paper);
+    border: 2px solid rgba(143, 160, 191, 0.4);
+    border-radius: 6px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+}
+
+/* Handoff lines: dashed = information, solid = material */
+.flow { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.dash { stroke-dasharray: 14 12; animation: flow 1.2s linear infinite; }
+.draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; transition: stroke-dashoffset 1.5s var(--ease-out-expo) 0.8s; }
+.slide.visible .draw { stroke-dashoffset: 0; }
+@keyframes flow { to { stroke-dashoffset: -26; } }
+
+/* ===========================================================
+   01 — TITLE
+   =========================================================== */
+.t-label { left: 110px; top: 150px; font: 500 24px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); }
+.t-title { left: 110px; top: 270px; }
+.t-title span { color: var(--amber); }
+.t-name  { left: 116px; bottom: 164px; font: 600 58px/1 var(--font-display); }
+.t-date  { left: 116px; bottom: 104px; font: 400 26px/1 var(--font-mono); letter-spacing: 0.12em; color: var(--mute); }
+.card    { position: absolute; background: var(--panel); padding: 14px; border: 2px solid rgba(143, 160, 191, 0.35); border-radius: 6px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4); }
+.card img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+
+/* ===========================================================
+   02 — ABOUT ME
+   =========================================================== */
+.about-grid { left: 120px; top: 330px; width: 1680px; display: flex; }
+.about-col { width: 560px; display: flex; flex-direction: column; align-items: center; }
+.about-col img { width: 380px; height: 380px; border-radius: 50%; object-fit: cover; border: 4px solid var(--teal); }
+.about-line { left: 120px; right: 120px; top: 770px; border-top: 3px dashed var(--teal); }
+.about-dot  { top: 756px; width: 30px; height: 30px; background: var(--amber); border-radius: 50%; }
+.about-cap  { top: 815px; width: 560px; text-align: center; }
+.about-cap .role  { font: 500 24px/1.2 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); }
+.about-cap .place { font: 800 96px/1 var(--font-display); letter-spacing: -0.025em; margin-top: 12px; }
+
+/* ===========================================================
+   03 — UXR AT NATIONAL GRID
+   =========================================================== */
+.n-35   { left: 100px; top: 170px; font: 800 420px/0.9 var(--font-display); letter-spacing: -0.04em; color: var(--amber); }
+.n-35 .plus { font-size: 0.55em; vertical-align: top; position: relative; top: 0.08em; margin-left: 0.04em; }
+.n-why  { left: 100px; top: 150px; font: 800 300px/0.88 var(--font-display); letter-spacing: -0.04em; color: var(--amber); }
+.n-lab  { left: 120px; top: 640px; font: 600 44px/1.15 var(--font-display); letter-spacing: -0.015em; }
+.n-ng   { left: 116px; top: 790px; width: 780px; font: 800 58px/1.08 var(--font-display); letter-spacing: -0.02em; color: var(--teal); }
+.beat   { left: 900px; width: 900px; border-top: 3px dashed rgba(143, 160, 191, 0.5); padding-top: 28px; display: flex; gap: 36px; }
+.beat .no { font: 500 26px/2.2 var(--font-mono); letter-spacing: 0.1em; color: var(--amber); width: 60px; flex: none; }
+.n-sup  { left: 120px; top: 975px; width: 800px; font: 500 24px/1.3 var(--font-mono); letter-spacing: 0.04em; color: var(--mute); }
+.beat2 p     { font-size: 44px; line-height: 1.08; }
+.beat2 small { display: block; margin-top: 12px; font: 400 27px/1.3 var(--font-display); color: var(--mute); }
+.beat p   { font: 800 56px/1.08 var(--font-display); letter-spacing: -0.02em; }
+
+/* ===========================================================
+   04 — M360 CONTEXT
+   =========================================================== */
+.m-title { left: 106px; top: 205px; font: 800 240px/0.88 var(--font-display); letter-spacing: -0.035em; }
+.m-ask   { left: 120px; top: 440px; width: 620px; }
+.m-ask .k { font: 500 24px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); margin-bottom: 18px; }
+.m-ask p  { font: 600 42px/1.18 var(--font-display); letter-spacing: -0.01em; }
+.m-grid   { left: 120px; top: 704px; width: 600px; }
+.m-shot   { left: 770px; top: 196px; width: 1030px; }
+
+/* ===========================================================
+   05 — APPROACH: branching diagram of the research logic
+   Distribution → Substation → major (backlog) / minor (priority)
+   → three actors → material list → substitutes
+   =========================================================== */
+.br-h     { left: 112px; top: 150px; width: 1700px; font-size: 76px; }
+.bx       { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; font: 800 32px/1.05 var(--font-display); letter-spacing: -0.015em; }
+.bx small { font: 500 18px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 8px; color: var(--teal); }
+.bx.dim   { background: transparent; border: 3px dashed var(--mute); color: var(--mute); }
+.bx.dim small { color: var(--mute); }
+.bx.hot   { background: var(--amber); border-color: var(--amber); color: var(--bg); }
+.bx.hot small { color: rgba(14, 27, 51, 0.8); }
+.br-sub   { left: 116px; top: 238px; font: 600 44px/1 var(--font-display); letter-spacing: -0.015em; color: var(--teal); }
+.br-lead  { left: 120px; top: 500px; width: 390px; }
+.br-lead .t { font: 800 46px/1.05 var(--font-display); letter-spacing: -0.02em; color: var(--teal); }
+.br-lead p  { font: 400 30px/1.3 var(--font-display); margin-top: 20px; }
+
+/* ===========================================================
+   06 — THREE INSIGHTS (overview)
+   =========================================================== */
+.ov-h     { left: 112px; top: 150px; width: 1700px; font-size: 84px; line-height: 1; letter-spacing: -0.02em; }
+.ov-row   { left: 120px; right: 120px; display: flex; align-items: center; gap: 50px; height: 150px; }
+.ov-row .no { font: 800 130px/1 var(--font-display); letter-spacing: -0.035em; color: var(--amber); width: 210px; flex: none; }
+.ov-row .tx { font: 800 62px/1.02 var(--font-display); letter-spacing: -0.025em; }
+.pa-only  { left: 112px; top: 700px; width: 1700px; font-size: 220px; line-height: 1; letter-spacing: -0.015em; }
+.pa-row   { left: 120px; right: 120px; display: flex; align-items: center; gap: 40px; height: 130px; border-top: 3px dashed rgba(143, 160, 191, 0.4); }
+.pa-row .no { font: 800 84px/1 var(--font-display); letter-spacing: -0.035em; color: var(--amber); width: 130px; flex: none; }
+.pa-row .tx { font: 800 54px/1.05 var(--font-display); letter-spacing: -0.02em; }
+.ov-q     { font: 800 66px/1.05 var(--font-display); letter-spacing: -0.025em; color: var(--amber); }
+
+/* ===========================================================
+   07 — ENTERED INTO AMBIGUITY
+   Same structure as slides 2 / 5 / 6: big headline, one line under it,
+   then content on a two-column grid (columns at x120 and x990, 810 wide).
+   =========================================================== */
+.build:not(.on) { pointer-events: none; }
+.ap-t { left: 120px; top: 36px; font: 800 38px/1 var(--font-display); letter-spacing: -0.02em; z-index: 3; }
+.ap-t-long { font-size: 29px; top: 40px; white-space: nowrap; }
+.hw-title   { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.hw-line    { left: 120px; top: 128px; width: 1680px; font: 600 46px/1.1 var(--font-display); letter-spacing: -0.02em; }
+.hw-evc     { top: 222px; width: 810px; }
+.hw-evc .ph { position: relative; height: 330px; border: 2px solid rgba(143, 160, 191, 0.4); border-radius: 6px; overflow: hidden; background: var(--panel); }
+.hw-evc .ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hw-evc .tag { position: absolute; left: 18px; top: 16px; padding: 8px 16px; border-radius: 999px; background: var(--amber); color: var(--bg); font: 500 18px/1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; }
+.hw-evc .cap { margin-top: 18px; font: 400 30px/1.25 var(--font-display); letter-spacing: -0.01em; }
+.hw-evc .cap b { font-weight: 800; }
+/* speech bubbles: rounded panel with a small tail at the bottom-left */
+.hw-bub     { top: 838px; width: 810px; padding: 26px 34px; background: var(--panel); border: 2px solid var(--teal); border-radius: 26px; }
+.hw-bub::after { content: ''; position: absolute; left: 56px; bottom: -14px; width: 26px; height: 26px; background: var(--panel); border-right: 2px solid var(--teal); border-bottom: 2px solid var(--teal); transform: rotate(45deg); }
+.hw-bub p   { font: 400 29px/1.3 var(--font-display); }
+.hw-bub p b { font-weight: 800; }
+/* closing line, full width at the very bottom */
+.hw-bar     { left: 120px; top: 908px; width: 1680px; padding: 18px 40px; background: var(--amber); color: var(--bg); border-radius: 6px; font: 800 29px/1.2 var(--font-display); letter-spacing: -0.015em; }
+
+/* ===========================================================
+   07 — REFRAME THE ASK INTO A RESEARCH QUESTION
+   Ask (outlined) → research question (amber). Two columns at x120 / x990.
+   =========================================================== */
+.rq-h     { left: 112px; top: 150px; width: 1700px; font-size: 54px; line-height: 1.02; letter-spacing: -0.025em; }
+.rq-card  { top: 372px; width: 700px; height: 610px; padding: 40px 48px; border-radius: 6px; display: flex; flex-direction: column; }
+.rq-card .k  { font: 500 22px/1.2 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.rq-card p   { font: 800 46px/1.1 var(--font-display); letter-spacing: -0.025em; margin-top: 24px; }
+.rq-card .sub { margin-top: 30px; padding-top: 22px; border-top: 2px dashed rgba(143, 160, 191, 0.5); }
+.rq-card .sl { font: 500 20px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.rq-card .st { margin-top: 12px; font: 500 30px/1.28 var(--font-display); }
+.rq-card .ft { margin-top: auto; font: 500 20px/1.35 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.rq-ask      { background: var(--panel); border: 3px solid var(--teal); }
+.rq-ask .k, .rq-ask .ft, .rq-ask .sl { color: var(--teal); }
+.rq-ask .st  { color: var(--mute); }
+.rq-question { background: var(--amber); color: var(--bg); }
+.rq-question .sub { border-top-color: rgba(14, 27, 51, 0.35); }
+.rq-shift    { left: 820px; top: 655px; width: 280px; text-align: center; }
+.rq-shift svg   { display: block; width: 220px; height: 40px; margin: 0 auto; }
+.rq-tag      { top: 318px; padding: 9px 18px; border-radius: 999px; font: 500 20px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; }
+.rq-tag-a    { color: var(--mute); border: 2px solid rgba(143, 160, 191, 0.6); }
+.rq-tag-b    { background: var(--amber); color: var(--bg); border: 2px solid var(--amber); }
+
+/* ===========================================================
+   08 — CHALLENGING THE ASSUMPTIONS (assumed → found, three rows)
+   =========================================================== */
+.ca-h     { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.ca-lab { top: 325px; font: 500 24px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.ca-lab-a { left: 120px; color: var(--mute); }
+.ca-lab-b { left: 1030px; color: var(--amber); }
+.ca-row { left: 120px; right: 120px; height: 150px; display: flex; align-items: center; }
+.ca-row .a { width: 760px; font: 600 40px/1.15 var(--font-display); letter-spacing: -0.015em; color: var(--mute); }
+.ca-row .b { margin-left: 150px; width: 770px; font: 800 48px/1.08 var(--font-display); letter-spacing: -0.025em; }
+
+/* ===========================================================
+   08 — ANCHORED SME INTERVIEW (headline across the top, the artifact large and centered below)
+   =========================================================== */
+.wk-h     { left: 112px; top: 150px; width: 1700px; font-size: 54px; line-height: 1.02; letter-spacing: -0.025em; }
+.an-ph  { border: 2px solid rgba(143, 160, 191, 0.4); border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+.an-ph img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.an-ph .tag { position: absolute; left: 14px; top: 12px; padding: 7px 14px; border-radius: 999px; background: var(--amber); color: var(--bg); font: 500 17px/1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; }
+
+/* ===========================================================
+   10 — BUILDING DOMAIN FLUENCY (headline across the top, the glossary large and centered below)
+   =========================================================== */
+.gl-h   { left: 112px; top: 215px; width: 540px; font-size: 60px; line-height: 1.02; letter-spacing: -0.02em; }
+.gl-img { left: 680px; top: 200px; width: 1120px; }
+
+/* ===========================================================
+   09 — CONNECTING THE DOTS (title on the left, the roles map large on the right)
+   =========================================================== */
+.cd-h     { left: 112px; top: 215px; width: 540px; font-size: 60px; line-height: 1.02; letter-spacing: -0.02em; }
+.cd-img { left: 120px; top: 440px; width: 700px; }
+.cd-img2 { left: 850px; top: 440px; width: 950px; }
+.ap-h     { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.cd-pm { left: 680px; top: 200px; width: 1120px; }
+
+/* ===========================================================
+   10 — CONNECTING THE DOTS: three zones + evidence strip
+   =========================================================== */
+.cz-h { left: 112px; top: 150px; width: 1700px; font-size: 54px; line-height: 1.04; letter-spacing: -0.025em; }
+.cz-col { top: 275px; width: 540px; height: 720px; padding: 36px 38px; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; display: flex; flex-direction: column; }
+.cz-col .k { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin-bottom: 16px; }
+.cz-col .t { font: 800 36px/1.08 var(--font-display); letter-spacing: -0.02em; }
+.cz-col .qt { margin-top: 14px; padding-top: 10px; border-top: 2px dashed rgba(143, 160, 191, 0.4); }
+.cz-col .qt .r { font: 500 18px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber); }
+.cz-col .qt .q { margin-top: 6px; font: 600 24px/1.2 var(--font-display); }
+.cz-col .end { margin-top: auto; padding-top: 14px; border-top: 2px dashed rgba(143, 160, 191, 0.5); font: 800 26px/1.2 var(--font-display); letter-spacing: -0.01em; color: var(--amber); }
+.cz-col .flow-v { margin-top: 16px; position: relative; padding-left: 22px; }
+.cz-col .flow-v::before { content: ''; position: absolute; left: 6px; top: 12px; bottom: 12px; border-left: 2px dashed var(--teal); }
+.cz-col .st { position: relative; display: flex; gap: 14px; align-items: baseline; padding: 5px 0; }
+.cz-col .st::before { content: ''; position: absolute; left: -22px; top: 15px; width: 12px; height: 12px; border-radius: 50%; background: var(--teal); }
+.cz-col .st b { width: 124px; flex: none; font: 500 16px/1.2 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+.cz-col .st span { font: 600 22px/1.2 var(--font-display); }
+.cz-col .mt { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 18px; }
+.cz-col .mt i { display: block; font: 500 19px/1.2 var(--font-mono); font-style: normal; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); }
+.cz-col .mt span { display: block; margin-top: 6px; font: 500 25px/1.2 var(--font-display); color: var(--mute); }
+/* the dashed line above each box's closing sentence sits at the same height in all three boxes */
+.cz-col .end, .cz-hero p { box-sizing: border-box; min-height: 140px; }
+.cz-hero { background: var(--amber); border-color: var(--amber); color: var(--bg); }
+.cz-hero .k { color: var(--bg); }
+.cz-hero .seq { margin-top: 28px; position: relative; padding-left: 26px; }
+.cz-hero .seq::before { content: ''; position: absolute; left: 7px; top: 14px; bottom: 14px; border-left: 3px dashed rgba(14, 27, 51, 0.5); }
+.cz-hero .seq div { position: relative; padding: 7px 0; font: 700 27px/1.18 var(--font-display); }
+.cz-hero .seq div::before { content: ''; position: absolute; left: -26px; top: 19px; width: 13px; height: 13px; border-radius: 50%; background: var(--bg); }
+.cz-hero .seq .bad { color: #B5291E; }
+.cz-hero .seq .bad::before { background: #B5291E; }
+.cz-hero p { margin-top: auto; padding-top: 18px; border-top: 3px dashed rgba(14, 27, 51, 0.4); font: 700 27px/1.22 var(--font-display); }
+.cz-hero .dx { margin-top: auto; padding: 16px 20px; background: var(--bg); color: var(--ink); border-radius: 6px; }
+.cz-hero .dx .dl { font: 500 16px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber); }
+.cz-hero .dx .dt { margin-top: 8px; font: 600 23px/1.22 var(--font-display); }
+.cz-thumb { left: 120px; top: 895px; width: 520px; border: 2px solid rgba(143, 160, 191, 0.5); border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
+.cz-thumb img { display: block; width: 100%; opacity: 0.7; }
+.cz-thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cz-cap { left: 680px; top: 925px; width: 1120px; }
+.cz-cap .l { font: 500 20px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--teal); }
+.cz-cap .d { margin-top: 14px; font: 500 30px/1.25 var(--font-display); color: var(--mute); }
+.cz-cap .d b { color: var(--ink); font-weight: 700; }
+
+/* ===========================================================
+   AGENDA (slide 2): three parts, same grid as the other three-column slides
+   =========================================================== */
+.ag-h { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.ag-col { top: 360px; width: 323px; height: 460px; padding: 34px 28px; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; display: flex; flex-direction: column; }
+.ag-col .no { font: 800 150px/0.9 var(--font-display); letter-spacing: -0.04em; color: var(--amber); height: 140px; }
+.ag-col .t  { margin-top: 24px; padding-bottom: 0; border-bottom: 0; font: 800 34px/1.05 var(--font-display); letter-spacing: -0.025em; }
+.ag-col ul  { margin-top: 20px; }
+.ag-col li  { list-style: none; position: relative; padding-left: 22px; font: 600 22px/1.22 var(--font-display); }
+.ag-col li + li { margin-top: 12px; }
+.ag-col li::before { content: ''; position: absolute; left: 0; top: 0.42em; width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+.ag-col .pg { margin-top: auto; padding-top: 14px; border-top: 2px dashed rgba(143, 160, 191, 0.5); font: 500 20px/1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); }
+.ag-hot { background: var(--amber); border-color: var(--amber); color: var(--bg); }
+.ag-hot .no { color: var(--bg); }
+.ag-hot .t  { border-bottom-color: rgba(14, 27, 51, 0.4); }
+.ag-hot li::before { background: var(--bg); }
+.ag-hot .pg { border-top-color: rgba(14, 27, 51, 0.4); color: var(--bg); }
+.ag-app { border-style: dashed; border-color: rgba(143, 160, 191, 0.7); background: transparent; }
+
+/* ===========================================================
+   08 — INSIGHT 1: one material process was actually two
+   Title on the left, the artifact large on the right
+   =========================================================== */
+.i1-h     { left: 112px; top: 215px; width: 540px; font-size: 60px; line-height: 1.02; letter-spacing: -0.02em; }
+.i1-img   { left: 680px; top: 200px; width: 1120px; }
+.itag { display: inline-block; margin-left: 16px; padding: 7px 14px; border-radius: 999px; background: var(--bg); color: var(--amber); font: 500 17px/1 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; vertical-align: 2px; }
+/* Insights 1–3: insight statement as the title, then a Recommendation and a Decision impact box */
+/* M360 users slide: three role cards on the standard 540-wide grid */
+.us-col { top: 360px; width: 540px; height: 340px; padding: 44px 46px; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; display: flex; flex-direction: column; }
+.us-col .t { padding-bottom: 28px; border-bottom: 3px dashed rgba(143, 160, 191, 0.5); font: 800 58px/1.04 var(--font-display); letter-spacing: -0.025em; }
+.us-col p { margin-top: 28px; font: 600 36px/1.25 var(--font-display); color: var(--amber); }
+.s7-q { padding: 22px 24px 20px; background: var(--panel); border: 2px solid var(--teal); border-radius: 22px; }
+.s7-q::after { content: ''; position: absolute; right: -14px; top: 150px; width: 24px; height: 24px; background: var(--panel); border-top: 2px solid var(--teal); border-right: 2px solid var(--teal); transform: rotate(45deg); }
+.s7-q p { font: 500 21px/1.32 var(--font-display); }
+.s7-q p .hl { font-weight: 800; }
+.s7-q .who { margin-top: 14px; text-align: right; font: 500 15px/1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+.in-h { left: 112px; top: 205px; width: 1700px; font-size: 48px; line-height: 1.06; letter-spacing: -0.025em; }
+.in-box { padding: 24px 32px; border-radius: 6px; display: flex; flex-direction: column; }
+.in-box .k { font: 500 20px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.in-box p { margin-top: 14px; font: 600 29px/1.28 var(--font-display); letter-spacing: -0.01em; }
+.in-rec { background: var(--panel); border: 3px solid var(--teal); }
+.in-rec .k { color: var(--teal); }
+.in-imp { background: var(--amber); color: var(--bg); }
+.i1-impact { left: 120px; top: 640px; width: 540px; padding: 28px 34px; background: var(--amber); color: var(--bg); border-radius: 6px; }
+.i1-impact .k { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.i1-impact p { margin-top: 14px; font: 600 38px/1.12 var(--font-display); letter-spacing: -0.02em; }
+.i1-impact p b { font-weight: 800; }
+
+/* ===========================================================
+   IMPACT SLIDES (9, 11, 13) + OUTCOME (14)
+   =========================================================== */
+.im-h     { left: 112px; top: 215px; width: 1700px; }
+.cells    { left: 120px; right: 120px; top: 600px; display: flex; gap: 60px; }
+.cell     { flex: 1; border-top: 4px solid var(--teal); padding-top: 24px; height: 360px; }
+.cell .k  { font: 500 22px/1.3 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--teal); min-height: 58px; }
+.cell .v  { font: 800 170px/1 var(--font-display); letter-spacing: -0.03em; color: var(--xx); margin-top: 40px; }
+
+/* ===========================================================
+   12 — INSIGHT 2: a critical actor was missing from our model
+   Four actors in a row (Purchasing highlighted), what purchasing does, the bridge underneath
+   =========================================================== */
+.ma-h    { left: 112px; top: 215px; width: 1700px; font-size: 60px; line-height: 1.02; letter-spacing: -0.025em; }
+.ma-node { top: 410px; width: 360px; height: 180px; padding: 30px 30px; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; display: flex; flex-direction: column; justify-content: center; }
+.ma-node .n { font: 800 36px/1.05 var(--font-display); letter-spacing: -0.02em; }
+.ma-node .c { margin-top: 12px; font: 400 26px/1.25 var(--font-display); color: var(--mute); }
+.ma-dash { border-color: var(--ink); }
+.ma-hot  { background: var(--amber); border-color: var(--amber); color: var(--bg); }
+.ma-hot .c { color: rgba(14, 27, 51, 0.8); }
+.ma-node .pill { position: absolute; left: 22px; top: -17px; padding: 7px 14px; border-radius: 999px; background: var(--bg); color: var(--amber); border: 2px solid var(--amber); font: 500 17px/1 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; }
+.ma-does { left: 560px; top: 655px; width: 1200px; }
+.ma-does p { display: flex; align-items: baseline; gap: 22px; font: 600 34px/1.2 var(--font-display); letter-spacing: -0.015em; }
+.ma-does p + p { margin-top: 12px; }
+.ma-does b { width: 190px; flex: none; font: 500 22px/1 var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber); }
+.ma-imp  { left: 120px; top: 915px; width: 1680px; padding: 22px 40px; background: var(--amber); color: var(--bg); border-radius: 6px; display: flex; align-items: baseline; gap: 36px; font: 700 33px/1.2 var(--font-display); letter-spacing: -0.015em; }
+.ma-imp .itag { margin-left: 0; }
+.ma-imp .k { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; flex: none; font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+
+/* ===========================================================
+   12 — INSIGHT 3 (lifecycle breakdown)
+   =========================================================== */
+.i3-h     { left: 112px; top: 215px; width: 1700px; font-size: 60px; line-height: 1.02; letter-spacing: -0.02em; }
+.i3-img   { left: 120px; top: 390px; width: 1000px; }
+.i3-call  { left: 1200px; top: 390px; width: 600px; background: var(--amber); color: var(--bg); padding: 44px 48px; border-radius: 6px; }
+.i3-call .k { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 18px; }
+.i3-call .t { font: 800 36px/1.15 var(--font-display); letter-spacing: -0.02em; }
+.i3-call .s { font: 600 34px/1.25 var(--font-display); letter-spacing: -0.01em; margin-top: 4px; }
+.i3-call .bl { font-weight: 800; padding: 0 14px; border-bottom: 3px dashed var(--bg); }
+
+/* ===========================================================
+   14 — OUTCOME: three columns (what shipped · what changed · impact)
+   =========================================================== */
+.oc-h   { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.oc-col { top: 290px; width: 540px; height: 730px; padding: 38px 40px; border-radius: 6px; display: flex; flex-direction: column; }
+.oc-col .k  { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 18px; }
+.oc-col .t  { font: 800 40px/1.08 var(--font-display); letter-spacing: -0.02em; }
+.oc-a { background: var(--panel); border: 3px solid var(--teal); }
+.oc-a .k { color: var(--teal); }
+.oc-b { background: var(--amber); color: var(--bg); }
+.oc-col ul  { margin-top: 26px; }
+.oc-col li  { list-style: none; position: relative; padding-left: 30px; font: 600 29px/1.2 var(--font-display); }
+.oc-col li + li { margin-top: 14px; }
+.oc-col li::before { content: ''; position: absolute; left: 0; top: 0.42em; width: 13px; height: 13px; border-radius: 50%; background: var(--amber); }
+.oc-col .tk { margin-top: auto; padding-top: 18px; border-top: 2px dashed rgba(143, 160, 191, 0.5); font: 400 26px/1.3 var(--font-display); color: var(--mute); }
+.oc-col .ft { margin-top: 26px; }
+.oc-col .lb { font: 500 20px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin-top: 18px; }
+.oc-col .tx { margin-top: 8px; font: 700 30px/1.15 var(--font-display); letter-spacing: -0.01em; }
+.oc-b p     { margin-top: 24px; font: 600 28px/1.3 var(--font-display); }
+
+/* ===========================================================
+   16 — RESEARCH CHANGED THREE PRODUCT DECISIONS (three From/To cards + takeaway bar)
+   =========================================================== */
+.rd-h { left: 112px; top: 140px; width: 1700px; font-size: 50px; line-height: 1.06; letter-spacing: -0.025em; }
+.ds-col { top: 280px; width: 540px; height: 640px; padding: 34px 38px; background: var(--panel); border: 3px solid var(--teal); border-radius: 6px; display: flex; flex-direction: column; }
+.ds-col .k  { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin-bottom: 22px; }
+.ds-col .lb { font: 500 19px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); }
+.ds-col .lb.to { margin-top: 30px; color: var(--amber); }
+.ds-col .tx { margin-top: 10px; font: 700 36px/1.14 var(--font-display); letter-spacing: -0.015em; }
+.ds-col .tx.from { color: var(--mute); font-weight: 600; }
+.ds-col .tx.hl { color: var(--ink); }
+.ds-col ul { margin-top: 24px; padding-top: 18px; border-top: 2px dashed rgba(143, 160, 191, 0.5); }
+.ds-col li { list-style: none; position: relative; padding-left: 28px; font: 600 25px/1.2 var(--font-display); }
+.ds-col li + li { margin-top: 11px; }
+.ds-col li::before { content: ''; position: absolute; left: 0; top: 0.42em; width: 12px; height: 12px; border-radius: 50%; background: var(--amber); }
+.ds-col .tk { margin-top: auto; padding-top: 18px; border-top: 2px dashed rgba(143, 160, 191, 0.5); font: 400 26px/1.3 var(--font-display); color: var(--mute); }
+.ds-bar { left: 120px; top: 945px; width: 1680px; padding: 22px 38px; background: var(--amber); color: var(--bg); border-radius: 6px; }
+.ds-bar p { font: 600 31px/1.25 var(--font-display); letter-spacing: -0.01em; }
+.ds-bar b { font-weight: 800; }
+
+/* ===========================================================
+   15 — OUTCOME (1 of 2): what shipped band + two product screenshots
+   =========================================================== */
+.ws-img { height: auto; }
+
+/* ===========================================================
+   15 — REFLECTION (two columns at x120 / x990, 810 wide)
+   =========================================================== */
+.rf2-h   { left: 112px; top: 150px; width: 1700px; font-size: 68px; line-height: 1.02; letter-spacing: -0.025em; }
+.rf2-col { top: 270px; width: 810px; height: 750px; padding: 38px 46px; border-radius: 6px; display: flex; flex-direction: column; }
+.rf2-col .k { font: 500 22px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 18px; }
+.rf2-col .t { font: 800 46px/1.06 var(--font-display); letter-spacing: -0.025em; }
+.rf2-a { background: var(--panel); border: 3px solid var(--teal); }
+.rf2-a .k, .rf2-a .lb { color: var(--teal); }
+.rf2-b { background: var(--amber); color: var(--bg); }
+.rf2-col p { margin-top: 22px; font: 600 29px/1.3 var(--font-display); }
+.rf2-col .lb { display: block; margin-bottom: 8px; font: 500 20px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.rf2-a .why  { margin-top: 22px; padding-top: 18px; border-top: 2px dashed rgba(143, 160, 191, 0.5); font: 400 25px/1.32 var(--font-display); color: var(--mute); }
+.rf2-a .next { margin-top: auto; padding-top: 24px; font: 700 28px/1.28 var(--font-display); }
+.rf2-a p { font-size: 27px; }
+.rf2-a .next .lb { color: var(--amber); }
+.rf2-b .lb2  { margin-top: 28px; font: 500 20px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.rf2-b ol    { margin-top: 14px; counter-reset: st; }
+.rf2-b li    { list-style: none; counter-increment: st; position: relative; padding-left: 52px; font: 800 33px/1.2 var(--font-display); letter-spacing: -0.015em; }
+.rf2-b li + li { margin-top: 12px; }
+.rf2-b li::before { content: counter(st); position: absolute; left: 0; top: 2px; width: 34px; height: 34px; border-radius: 50%; background: var(--bg); color: var(--amber); font: 500 18px/34px var(--font-mono); text-align: center; }
+.rf2-b .fin  { margin-top: auto; padding-top: 18px; border-top: 2px dashed rgba(14, 27, 51, 0.45); font: 600 27px/1.3 var(--font-display); }
+
+/* ===========================================================
+   16 — CLOSE
+   =========================================================== */
+.c-q      { left: 100px; top: 280px; }
+.c-q span { color: var(--amber); }
+.c-name   { left: 116px; bottom: 164px; font: 600 58px/1 var(--font-display); }
+.c-sub    { left: 116px; bottom: 104px; font: 400 26px/1 var(--font-mono); letter-spacing: 0.12em; color: var(--mute); }
+
+/* ===========================================================
+   NAVIGATION UI (outside the stage): arrows, counter, click zones, slide picker, go-to
+   =========================================================== */
+.deck-nav { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; z-index: 900; transition: opacity 0.35s ease; }
+.deck-nav.idle { opacity: 0; pointer-events: none; }
+.deck-nav button { height: 46px; min-width: 46px; padding: 0 16px; border-radius: 999px; background: rgba(21, 38, 74, 0.92); border: 1px solid var(--teal); color: var(--ink); font: 500 20px/1 var(--font-mono); letter-spacing: 0.08em; cursor: pointer; }
+.deck-nav button:hover { background: var(--teal); color: var(--bg); }
+.deck-nav .count { font-size: 15px; letter-spacing: 0.16em; }
+/* Slide sorter on the left (like PowerPoint's editing view); hidden in full screen, toggle with T */
+#thumbs { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; overflow-y: auto; padding: 14px 10px 24px 8px; background: #08111f; border-right: 1px solid rgba(143, 160, 191, 0.25); z-index: 950; display: none; scrollbar-width: thin; scrollbar-color: #2a3d63 transparent; }
+body.has-thumbs #thumbs { display: block; }
+body.has-thumbs .zone-l { left: 240px; }
+body.has-thumbs .deck-nav { left: calc(50% + 120px); }
+.th { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; cursor: pointer; }
+.th .n { width: 22px; flex: none; padding-top: 4px; text-align: right; font: 500 12px/1 var(--font-mono); color: var(--mute); }
+.th .box { position: relative; width: 192px; height: 108px; overflow: hidden; border: 2px solid transparent; border-radius: 4px; box-sizing: content-box; background: #0E1B33; }
+.th:hover .box { border-color: rgba(143, 160, 191, 0.6); }
+.th.on .box { border-color: var(--amber); }
+.th.on .n { color: var(--amber); }
+.th .inner { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform: scale(0.1); transform-origin: 0 0; pointer-events: none; }
+.th .slide { visibility: visible !important; opacity: 1 !important; position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.th .reveal, .th .build { opacity: 1 !important; transform: none !important; transition: none !important; animation: none !important; }
+@media print { #thumbs { display: none !important; } }
+/* Laser pointer (L) and pen (P): drawn on the page, so a screen share (Google Meet, etc.) shows them */
+#ink { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 970; pointer-events: none; display: none; }
+body.pen #ink { display: block; pointer-events: auto; }
+body.pen, body.laser, body.pen *, body.laser * { cursor: none !important; }
+#laser { position: fixed; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #ff2b2b; box-shadow: 0 0 0 4px rgba(255, 43, 43, 0.28), 0 0 18px 6px rgba(255, 43, 43, 0.55); pointer-events: none; z-index: 980; display: none; }
+body.pen #laser, body.laser #laser { display: block; }
+body.pen #laser { width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+#penHint { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; background: rgba(21, 38, 74, 0.92); border: 1px solid #ff2b2b; color: #F3F1EA; font: 500 14px/1 var(--font-mono); letter-spacing: 0.08em; z-index: 990; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
+#penHint.show { opacity: 1; }
+@media print { #ink, #laser, #penHint { display: none !important; } }
+.zone { position: fixed; top: 90px; bottom: 80px; width: 6%; z-index: 800; cursor: pointer; }
+.zone-l { left: 0; } .zone-r { right: 0; }
+body.editing .zone { display: none; }
+.goto { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); padding: 12px 20px; border-radius: 999px; background: var(--amber); color: var(--bg); font: 500 18px/1 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; z-index: 950; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.goto.show { opacity: 1; }
+.picker { position: fixed; inset: 0; z-index: 20000; background: rgba(5, 8, 15, 0.94); display: none; overflow: auto; }
+.picker.open { display: block; }
+.picker-box { max-width: 1100px; margin: 0 auto; padding: 48px 32px 64px; }
+.picker-h { font: 500 16px/1 var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin-bottom: 26px; }
+.picker-h span { color: var(--mute); margin-left: 14px; }
+.picker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 12px; }
+.picker-item { display: flex; align-items: baseline; gap: 18px; padding: 16px 20px; border: 1px solid rgba(143, 160, 191, 0.35); border-radius: 6px; background: var(--panel); color: var(--ink); text-align: left; cursor: pointer; font: 600 19px/1.25 var(--font-display); }
+.picker-item b { font: 500 15px/1 var(--font-mono); letter-spacing: 0.14em; color: var(--amber); flex: none; }
+.picker-item:hover, .picker-item.cur { border-color: var(--amber); }
+.picker-item.cur { background: rgba(242, 163, 58, 0.14); }
+@media print { .deck-nav, .zone, .goto, .picker { display: none !important; } }
+
+/* ===========================================================
+   DECK UI (outside the stage): progress + edit mode
+   =========================================================== */
+.progress { position: fixed; left: 0; bottom: 0; height: 5px; background: var(--amber); width: 0; transition: width 0.4s var(--ease-out-expo); z-index: 1000; }
+
+.edit-hotzone { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 10000; cursor: pointer; }
+.edit-toggle {
+    position: fixed; top: 16px; left: 16px; z-index: 10001;
+    font: 500 13px/1 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--teal); padding: 10px 14px; cursor: pointer;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+/* Visibility is JS-controlled (a CSS ~ sibling hover chain breaks with pointer-events:none) */
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+.edit-toggle.active { background: var(--amber); color: var(--bg); border-color: var(--amber); }
+body.editing .slide [contenteditable="true"] { outline: 2px dashed rgba(242, 163, 58, 0.7); outline-offset: 6px; cursor: text; }
+body.editing .reveal { opacity: 1; transform: none; }
+.toast { position: fixed; left: 50%; top: 20px; transform: translateX(-50%); background: var(--panel); color: var(--ink); border: 1px solid var(--teal); font: 500 14px/1 var(--font-mono); padding: 12px 18px; z-index: 10002; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+
+<body>
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage">
+
+<!-- =========================================================
+     01 — TITLE
+     ========================================================= -->
+<section class="slide title-slide active" data-title="Title">
+    <svg class="flow" viewBox="0 0 1920 1080" fill="none" aria-hidden="true">
+        <path class="dash" d="M110 190 H640" stroke="#19B39A" stroke-width="3"/>
+        <circle cx="110" cy="190" r="9" fill="#19B39A"/>
+        <path class="draw" d="M1220 664 V900 H1625 V804" stroke="#F2A33A" stroke-width="3"/>
+        <circle cx="1220" cy="664" r="9" fill="#F2A33A"/>
+        <circle cx="1625" cy="804" r="9" fill="#F2A33A"/>
+    </svg>
+    <div class="abs t-label ed reveal">UX Research</div>
+    <h1 class="abs h-xl t-title ed reveal" style="--d:.15s">Case<br>Study<span>.</span></h1>
+    <div class="card reveal" style="left:1040px; top:150px; width:360px; height:500px; --d:.3s"><img src="assets/title-1.jpg" style="object-position:50% 64%" alt="Yao Guan facilitating a research workshop at a whiteboard"></div>
+    <div class="card reveal" style="left:1460px; top:330px; width:330px; height:460px; --d:.5s"><img src="assets/title-2.jpg" style="object-position:40% 50%" alt="Yao Guan placing a sticky note on an affinity map"></div>
+    <div class="abs t-name ed reveal" style="--d:.5s">Yao Guan</div>
+    <div class="abs t-date ed reveal" style="--d:.65s">October 2026</div>
+</section>
+
+<!-- =========================================================
+     02 — AGENDA (the three parts of the story, matching the tracker on each slide)
+     ========================================================= -->
+<section class="slide" data-title="Agenda" data-sec="-2" data-chrome="off">
+    <h2 class="abs h-m ag-h ed reveal">Agenda</h2>
+
+    <div class="abs ag-col reveal" style="left:120px; --d:0.1s">
+        <div class="no">00</div>
+        <div class="t ed">My Background</div>
+        <div class="pg ed">Pages 03–04</div>
+    </div>
+    <div class="abs ag-col reveal" style="left:459px; --d:0.2s">
+        <div class="no">01</div>
+        <div class="t ed">The Case</div>
+        <div class="pg ed">Pages 05–06</div>
+    </div>
+    <div class="abs ag-col reveal" style="left:798px; --d:0.3s">
+        <div class="no">02</div>
+        <div class="t ed">My Approach</div>
+        <div class="pg ed">Pages 07–11</div>
+    </div>
+    <div class="abs ag-col ag-hot reveal" style="left:1137px; --d:0.4s">
+        <div class="no">03</div>
+        <div class="t ed">The Impact</div>
+        <div class="pg ed">Pages 12–16</div>
+    </div>
+    <div class="abs ag-col ag-app reveal" style="left:1476px; --d:0.5s">
+        <div class="no">04</div>
+        <div class="t ed">Appendix</div>
+        <div class="pg ed">Pages 17–25</div>
+    </div>
+</section>
+
+<!-- =========================================================
+     02 — ABOUT ME (Florida → Iowa → Boston)
+     ========================================================= -->
+<section class="slide" data-title="About me" data-chrome="off">
+    <h2 class="abs h-l ed reveal" style="left:112px; top:150px;">About me</h2>
+
+    <div class="abs about-grid">
+        <div class="about-col reveal" style="--d:.15s"><img src="assets/about-florida.jpg" alt="Friends and colleagues at an outdoor table in Florida"></div>
+        <div class="about-col reveal" style="--d:.3s"><img src="assets/about-iowa.jpg" alt="Group photo under trees in Iowa"></div>
+        <div class="about-col reveal" style="--d:.45s"><img src="assets/about-boston.jpg" alt="Team dinner in Boston"></div>
+    </div>
+
+    <div class="abs about-line reveal" style="--d:.5s"></div>
+    <div class="abs about-dot reveal" style="left:385px; --d:.55s"></div>
+    <div class="abs about-dot reveal" style="left:945px; --d:.65s"></div>
+    <div class="abs about-dot reveal" style="left:1505px; --d:.75s"></div>
+
+    <div class="abs about-cap reveal" style="left:120px; --d:.6s"><div class="role ed">PhD in Psychology</div><div class="place ed">Florida</div></div>
+    <div class="abs about-cap reveal" style="left:680px; --d:.7s"><div class="role ed">Postdoc in Neuroscience</div><div class="place ed">Iowa</div></div>
+    <div class="abs about-cap reveal" style="left:1240px; --d:.8s"><div class="role ed">UX Researcher in Utility</div><div class="place ed">Boston</div></div>
+</section>
+
+<!-- =========================================================
+     03 — UX RESEARCH AT NATIONAL GRID
+     ========================================================= -->
+<section class="slide" data-title="UX research at National Grid" data-chrome="off">
+    <div class="abs n-35 ed reveal">3.5<span class="plus">+</span></div>
+    <div class="abs n-lab ed reveal" style="--d:.15s">years as a UX researcher<br>at National Grid</div>
+    <div class="abs n-ng ed reveal" style="--d:.25s">Solve the right problem,<br>solve the problem right</div>
+
+    <div class="abs beat reveal" style="top:200px; --d:.2s"><div class="no">01</div><p class="ed">Comfortable entering ambiguity in a complex domain</p></div>
+    <div class="abs beat reveal" style="top:470px; --d:.35s"><div class="no">02</div><p class="ed">Technical users. Messy data. Conflicting evidence.</p></div>
+    <div class="abs beat reveal" style="top:740px; --d:.5s"><div class="no">03</div><p class="ed">Challenging assumptions, connecting silos, turning complexity into clarity</p></div>
+</section>
+
+<!-- =========================================================
+     04 — M360 CONTEXT
+     ========================================================= -->
+<section class="slide" data-sec="0" data-title="M360 Case Study">
+    <h2 class="abs m-title ed reveal" style="--d:.1s">M360</h2>
+    <div class="abs m-ask reveal" style="--d:.3s">
+        <div class="k ed">Product goal</div>
+        <p class="ed">Expand M360’s <span class="hl">Distribution</span> materials experience to support <span class="hl">Substation</span> materials.</p>
+    </div>
+    <img class="abs shot m-grid reveal" style="--d:.4s" src="assets/power-grid.png" alt="Power grid: generation, transmission and distribution, with substations between them">
+    <img class="abs shot m-shot reveal" style="--d:.55s" src="assets/m360-ui.png" alt="M360 work orders screen">
+</section>
+
+<!-- =========================================================
+     APPENDIX — Starting with Ambiguity (moved from slide 7)
+     ========================================================= -->
+<section class="slide" data-sec="0" data-title="Material readiness was unreliable">
+    <h2 class="abs h-m wk-h ed reveal">Material readiness was unreliable. Depots were overcrowded while construction jobs were delayed.</h2>
+    <p class="abs hw-line ed reveal" style="--d:.1s; top:300px">The product team knew the symptom. <span class="hl">I needed to define the problem.</span></p>
+
+    <!-- Evidence: two columns, 810 wide, aligned with the quote / symptom row below -->
+    <div class="abs hw-evc reveal" style="left:120px; top:385px; --d:.2s">
+        <div class="ph"><img src="assets/evidence-too-early.jpg" alt="Pallets and cartons stacked in a depot aisle"><span class="tag ed">Too early</span></div>
+        <p class="cap ed">Materials arrived months early, <b>crowding limited depot space</b>.</p>
+    </div>
+    <div class="abs hw-evc reveal" style="left:990px; top:385px; --d:.3s">
+        <div class="ph"><img src="assets/evidence-unexpected.jpg" alt="A wrapped pallet of unexpected material on a depot floor"><span class="tag ed">Unexpected</span></div>
+        <p class="cap ed">Unexpected material arrived, leaving staff to <b>hunt for context</b>.</p>
+    </div>
+
+    <!-- User quotes as speech bubbles, aligned under the two photo columns -->
+    <div class="abs hw-bub reveal" style="left:120px; top:860px; --d:.4s"><p class="ed">“Sometimes a whole material list wasn’t getting ordered and nobody knew it until the job started.”</p></div>
+    <div class="abs hw-bub reveal" style="left:990px; top:860px; --d:.5s"><p class="ed">“Right now, we’re <b>chasing materials</b> across spreadsheets, emails, and phone calls.”</p></div>
+
+</section>
+
+<!-- =========================================================
+     05 — APPROACH: branching diagram (the logic of the research)
+     Distribution → Substation → major (backlog) / minor (priority)
+     Material list → substitutes sits above the three-actor process.
+     ========================================================= -->
+<section class="slide" data-sec="1" data-title="Iterative Research">
+    <h2 class="abs h-m br-h ed on">Foundational Discovery</h2>
+    <div class="abs br-sub ed on">Continuous iterative research</div>
+
+    <!-- The whole flow is on screen when you arrive (no click steps). Each actor has a real artifact under it. -->
+    <svg class="flow" viewBox="0 0 1920 1080" fill="none" aria-hidden="true">
+        <defs><marker id="s7ah" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L14,7 L0,14 z" fill="#19B39A"/></marker></defs>
+        <!-- Substation materials sits halfway between Major and Minor; straight arrows to each -->
+        <path d="M775 384 L598 424" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12" marker-end="url(#s7ah)"/>
+        <path d="M775 384 L952 424" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12" marker-end="url(#s7ah)"/>
+        <!-- Minor materials → the whole actor group: one straight arrow -->
+        <path d="M960 515 V552" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12" marker-end="url(#s7ah)"/>
+        <!-- the actor group: three actors, each with its real artifact -->
+        <rect x="400" y="560" width="1120" height="345" rx="6" stroke="#19B39A" stroke-opacity="0.6" stroke-width="2" stroke-dasharray="10 8"/>
+        <path d="M740 625 H802 M1110 625 H1172" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12"/>
+        <polygon points="798,615 814,625 798,635" fill="#19B39A"/>
+        <polygon points="1168,615 1184,625 1168,635" fill="#19B39A"/>
+        <!-- the whole actor group → Material substitution -->
+        <path d="M960 905 V930" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12" marker-end="url(#s7ah)"/>
+    </svg>
+
+    <div class="bx" style="left:515px; top:295px; width:520px; height:85px;"><span class="ed">Substation materials</span></div>
+    <div class="bx dim" style="left:420px; top:425px; width:340px; height:90px;"><span class="ed">Major materials</span><small class="ed">Backlog</small></div>
+    <div class="bx hot" style="left:790px; top:425px; width:340px; height:90px;"><span class="ed">Minor materials</span><small class="ed">Priority</small></div>
+    <div class="bx" style="left:440px; top:580px; width:300px; height:90px;"><span class="ed">Substation designer</span></div>
+    <div class="bx hot" style="left:810px; top:580px; width:300px; height:90px;"><span class="ed">Purchasing team</span><small class="ed">Missing actor</small></div>
+    <div class="bx" style="left:1180px; top:580px; width:300px; height:90px;"><span class="ed">Depot</span></div>
+    <div class="abs an-ph s7-art" style="left:440px; top:695px; width:300px; height:190px"><img src="assets/s7-designer.jpg" alt="Substation material list in Excel with a highlighted row (station details blurred)" style="object-position: 50% 50%"></div>
+    <div class="abs an-ph s7-art" style="left:810px; top:695px; width:300px; height:190px"><img src="assets/s7-purchasing.jpg" alt="Request for quote spreadsheet from National Grid, personal details blurred" style="object-position: 0 0"></div>
+    <div class="abs an-ph s7-art" style="left:1180px; top:695px; width:300px; height:190px"><img src="assets/s7-depot.jpg" alt="Depot warehouse with stocked shelving and pallets" style="object-position: 50% 55%"></div>
+    <div class="bx hot" style="left:660px; top:945px; width:600px; height:90px;"><span class="ed">Material list: Material substitution</span><small class="ed">Critical breakdown point</small></div>
+
+    <img class="abs shot" style="left:1160px; top:158px; width:640px" src="assets/picture1.png" alt="Engineering design input (a marked-up design drawing) leading to the physical outcome (the installed transformers)">
+    <!-- Substation designer quote, as a speech bubble beside the designer box -->
+    <div class="abs s7-q" style="left:100px; top:610px; width:285px"><p class="ed">“Everyone’s trying to use the same spreadsheet (<span class="hl">Material List</span>) for different jobs—and none of them are getting what they need.”</p><div class="who ed">— Substation Designer</div></div>
+</section>
+
+<!-- =========================================================
+     07 — REFRAME THE ASK INTO A RESEARCH QUESTION
+     ========================================================= -->
+<section class="slide" data-sec="1" data-title="Entering Ambiguity">
+    <h2 class="abs h-m rq-h ed reveal">Entering Ambiguity:<br><span class="hl">Understand the Product Team’s Mental Model, Then Reframe the Ask</span></h2>
+
+    <div class="abs rq-card rq-ask reveal" style="left:120px; --d:.15s">
+        <div class="k ed">The product ask</div>
+        <p class="ed">Extend M360’s Distribution material experience to Substation.</p>
+        <div class="sub">
+            <div class="sl ed">Inherited assumption</div>
+            <div class="st ed">The existing Distribution workflow and screens could provide the starting model for Substation.</div>
+        </div>
+        <div class="ft ed">What the team wanted to achieve</div>
+    </div>
+
+    <!-- The conceptual shift: product-first (left) → workflow-first (right) -->
+    <div class="abs rq-tag rq-tag-a ed reveal" style="left:120px; --d:.15s">Product-first</div>
+    <div class="abs rq-tag rq-tag-b ed reveal" style="left:1100px; --d:.4s">Workflow-first</div>
+    <div class="abs rq-shift reveal" style="--d:.3s">
+        <svg viewBox="0 0 220 40" fill="none" aria-hidden="true">
+            <path d="M6 20 H196" stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12"/>
+            <polygon points="192,8 216,20 192,32" fill="#19B39A"/>
+        </svg>
+    </div>
+
+    <div class="abs rq-card rq-question reveal" style="left:1100px; --d:.4s">
+        <div class="k ed">The reframed research question</div>
+        <p class="ed">How is material readiness actually achieved for a Substation job today?</p>
+        <div class="sub">
+            <div class="sl ed">Why I reframed it</div>
+            <div class="st ed">Before testing whether users could use the existing screens, I needed to know whether those screens represented the right workflow.</div>
+        </div>
+        <div class="ft ed">Understand the operating model before validating the interface</div>
+    </div>
+</section>
+
+<!-- =========================================================
+     10 — BUILDING DOMAIN FLUENCY: the substation material glossary
+     ========================================================= -->
+<section class="slide" data-sec="1" data-title="Building domain fluency">
+    <h2 class="abs h-m wk-h ed reveal">Building domain fluency<br><span class="hl">to earn credibility with specialized users</span></h2>
+    <div class="abs an-ph reveal" style="left:365px; top:325px; width:1189px; height:700px; --d:.2s"><img src="assets/tech-terms.png" alt="Material System Terminology: STR, STO, PAR and the order flow from PR to PO and STO"></div>
+</section>
+
+<!-- =========================================================
+     08 — ANCHORED SME INTERVIEW: a real recent job + artifact walkthrough (the material list)
+     ========================================================= -->
+<section class="slide" data-sec="1" data-title="Anchoring SME interviews">
+    <h2 class="abs h-m wk-h ed reveal">Anchoring SME interviews with<br><span class="hl">a real recent job and artifact walkthrough</span></h2>
+    <!-- The artifacts walked through in the SME interviews: the material list (large), then its updates, an email thread and the design drawing -->
+    <div class="abs an-ph reveal" style="left:540px; top:325px; width:841px; height:360px; --d:.15s"><img src="assets/material-list-crop.png" alt="Substation material list in Excel, cropped to the list header and first rows"><span class="tag ed">Material list</span></div>
+    <div class="abs an-ph reveal" style="left:130px; top:725px; width:597px; height:235px; --d:.3s"><img src="assets/sme-update.png" alt="Material list with revised rows highlighted"><span class="tag ed">Update</span></div>
+    <div class="abs an-ph reveal" style="left:757px; top:725px; width:450px; height:235px; --d:.4s"><img src="assets/sme-email.png" alt="Outlook inbox with email threads carrying material list versions"><span class="tag ed">Email</span></div>
+    <div class="abs an-ph reveal" style="left:1237px; top:725px; width:553px; height:235px; --d:.5s"><img src="assets/sme-design.png" alt="Engineering design drawing next to its material list"><span class="tag ed">Design</span></div>
+</section>
+
+<!-- =========================================================
+     10 — CONNECTING THE DOTS: what I heard · how I synthesized it · what converged (+ small evidence strip)
+     ========================================================= -->
+<section class="slide" data-sec="1" data-title="Connecting fragmented evidence">
+    <h2 class="abs h-m cz-h ed reveal">Connecting fragmented evidence<br><span class="hl">to get to the root cause.</span></h2>
+
+    <!-- 1. WHAT I HEARD -->
+    <div class="abs cz-col reveal" style="left:120px; --d:.1s">
+        <div class="k ed">What I heard</div>
+        <div class="t ed">Each role saw a different part of the truth.</div>
+        <div class="qt"><div class="r ed">Substation Designer</div><div class="q ed">“I’m out of the loop once procurement takes over.”</div></div>
+        <div class="qt"><div class="r ed">Purchasing</div><div class="q ed">“I send it, but they don’t know where to find it after. Then I get asked again—what’s on this PO?”</div></div>
+        <div class="qt"><div class="r ed">Depot</div><div class="q ed">“We open the Connex and it’s not what the BoM say—it’s Cantex instead of Carlon. Now we’re chasing the truth.”</div></div>
+        <div class="end ed">Each stakeholder group only saw a different part of the truth.</div>
+    </div>
+
+    <!-- 2. HOW I SYNTHESIZED IT -->
+    <div class="abs cz-col reveal" style="left:690px; --d:.25s">
+        <div class="k ed">How I synthesized it</div>
+        <div class="t ed">I traced the same material state across roles</div>
+        <div class="mt">
+            <div><i class="ed">Compare accounts</i><span class="ed">What each role believed happened</span></div>
+            <div><i class="ed">Trace artifacts</i><span class="ed">Material List, PO, email, receiving information</span></div>
+            <div><i class="ed">Follow state changes</i><span class="ed">What changed, when, and who knew</span></div>
+            <div><i class="ed">Look for handoff failure</i><span class="ed">Where information stopped propagating</span></div>
+        </div>
+        <div class="end ed">I didn’t try to reconcile the stories into one version of truth. I treated disagreement itself as evidence of a broken handoff.</div>
+    </div>
+
+    <!-- 3. WHAT CONVERGED (the hero) -->
+    <div class="abs cz-col cz-hero reveal" style="left:1260px; --d:.4s">
+        <div class="k ed">What I surfaced</div>
+        <div class="t ed">The breakdown became visible at substitution</div>
+        <div class="seq">
+            <div class="ed">Substation Designer specifies A</div>
+            <div class="ed">A unavailable</div>
+            <div class="ed">Purchasing substitutes B</div>
+            <div class="ed">Purchasing’s information changes</div>
+            <div class="bad ed">Downstream Material List may still show A</div>
+        </div>
+        <p class="ed">At a system level, this is a cross-role handoff failure.</p>
+    </div>
+</section>
+
+<!-- =========================================================
+     08 — INSIGHT 1: one material process was actually two (title + the artifact)
+     ========================================================= -->
+<section class="slide" data-sec="2" data-title="Insight 1 — one process, two">
+    <div class="abs reveal" style="left:120px; top:160px;"><div class="kick ed">Insight 01 — Changed Scope</div></div>
+    <h2 class="abs h-m in-h ed reveal" style="--d:.1s">Unlike distribution, substation materials follow two distinct workflows, <span class="hl">and it is the minor materials that create the bigger pain.</span></h2>
+    <div class="abs i1-impact reveal" style="--d:.4s"><div class="k"><span class="ed">Impact</span><span class="itag ed">Scope changed</span></div><p class="ed">Focusing the initial product scope on <b>minor materials</b>.</p></div>
+    <img class="abs shot reveal" style="left:120px; top:360px; width:1015px; --d:.25s" src="assets/substation-materials.png" alt="Diagram: Substation materials, two types, major vs. minor">
+    <div class="abs in-box in-rec reveal" style="left:1165px; top:360px; width:635px; height:320px; --d:.3s"><div class="k ed">My recommendation</div><p class="ed">Prioritize the minor-material workflow for the Substation scope, rather than forcing major and minor materials into one product flow.</p></div>
+    <div class="abs in-box in-imp reveal" style="left:1165px; top:710px; width:635px; height:330px; --d:.45s"><div class="k ed">Decision impact</div><p class="ed">Product and Business narrowed the scope to minor materials, where the research showed greater operational friction and more immediate product value.</p></div>
+</section>
+
+<!-- =========================================================
+     08 — INSIGHT 1: one material process was actually two (title + the artifact)
+     ========================================================= -->
+<section class="slide" data-still data-sec="2" data-title="Insight 1 — manual and disconnected ordering">
+    <div class="abs reveal" style="left:120px; top:160px;"><div class="kick ed">Insight 01 — Changed Scope</div></div>
+    <h2 class="abs h-m in-h ed reveal" style="--d:.1s">Unlike distribution, substation materials follow two distinct workflows, <span class="hl">and it is the minor materials that create the bigger pain.</span></h2>
+    <div class="abs i1-impact reveal" style="--d:.4s"><div class="k"><span class="ed">Impact</span><span class="itag ed">Scope changed</span></div><p class="ed">Focusing the initial product scope on <b>minor materials</b>.</p></div>
+    <img class="abs shot reveal" style="left:120px; top:360px; width:1015px" src="assets/minor-ordering.png" alt="Manual and Disconnected Ordering for Minor Materials: systemic pain point and high-impact problem and opportunity areas">
+    <div class="abs in-box in-rec reveal" style="left:1165px; top:360px; width:635px; height:320px; --d:.3s"><div class="k ed">My recommendation</div><p class="ed">Prioritize the minor-material workflow for the Substation scope, rather than forcing major and minor materials into one product flow.</p></div>
+    <div class="abs in-box in-imp reveal" style="left:1165px; top:710px; width:635px; height:330px; --d:.45s"><div class="k ed">Decision impact</div><p class="ed">Product and Business narrowed the scope to minor materials, where the research showed greater operational friction and more immediate product value.</p></div>
+</section>
+
+<!-- =========================================================
+     12 — INSIGHT 2: a critical actor was missing from our model
+     ========================================================= -->
+<section class="slide" data-sec="2" data-title="Insight 2 — the missing actor">
+    <div class="abs reveal" style="left:120px; top:160px;"><div class="kick ed">Insight 02 — Changed User/workflow model</div></div>
+    <h2 class="abs h-m in-h ed reveal" style="--d:.1s">Purchasing is a core actor in the minor-material workflow — <span class="hl">not a supporting stakeholder.</span></h2>
+
+    <!-- dashed arrows = information / material handoffs between the four actors -->
+    <svg class="flow reveal" style="--d:.2s" viewBox="0 0 1920 1080" fill="none" aria-hidden="true">
+        <g stroke="#19B39A" stroke-width="3" stroke-dasharray="14 12">
+            <path d="M484 450 H546"/><path d="M924 450 H986"/><path d="M1364 450 H1426"/>
+            <path d="M740 574 V638"/>
+        </g>
+        <g fill="#19B39A">
+            <polygon points="542,440 562,450 542,460"/><polygon points="982,440 1002,450 982,460"/><polygon points="1422,440 1442,450 1422,460"/>
+            <circle cx="740" cy="638" r="6"/>
+        </g>
+    </svg>
+
+    <div class="abs ma-node reveal" style="left:120px; --d:.25s"><div class="n ed">Substation Designer</div><div class="c ed">Releases IFC package</div></div>
+    <div class="abs ma-node ma-hot reveal" style="left:560px; --d:.35s"><span class="pill ed">Missing actor</span><div class="n ed">Purchasing Team</div><div class="c ed">Review, order, substitute</div></div>
+    <div class="abs ma-node reveal" style="left:1000px; --d:.45s"><div class="n ed">Depot Team</div><div class="c ed">Receives / stages</div></div>
+    <div class="abs ma-node ma-dash reveal" style="left:1440px; --d:.55s"><div class="n ed">Construction Job Site</div></div>
+
+    <!-- what the purchasing team does -->
+    <div class="abs ma-does reveal" style="--d:.65s">
+        <p><b class="ed">Reviews</b><span class="ed">the material list</span></p>
+        <p><b class="ed">Checks</b><span class="ed">availability + lead times</span></p>
+        <p><b class="ed">Sources</b><span class="ed">alternates, adds PO + substitution info</span></p>
+    </div>
+    <div class="abs in-box in-rec reveal" style="left:120px; top:848px; width:825px; height:184px; --d:.3s"><div class="k ed">My recommendation</div><p class="ed">Bring Purchasing into the core user model and design the workflow around Designer → Purchasing → Depot.</p></div>
+    <div class="abs in-box in-imp reveal" style="left:975px; top:848px; width:825px; height:184px; --d:.45s"><div class="k ed">Decision impact</div><p class="ed">Purchasing became a core user group, changing the workflow model from Designer → Depot to<br>Designer → Purchasing → Depot.</p></div>
+</section>
+
+<!-- =========================================================
+     12 — INSIGHT 3: lifecycle breakdown
+     ========================================================= -->
+<section class="slide" data-sec="2" data-title="Insight 3 — a critical handoff breakdown">
+    <div class="abs reveal" style="left:120px; top:160px;"><div class="kick ed">Insight 03 — Added Workflow requirement</div></div>
+    <h2 class="abs h-m in-h ed reveal" style="--d:.1s">Material substitutions are where <span class="hl">minor material process breaks across roles.</span></h2>
+    <img class="abs shot reveal" style="left:120px; top:375px; width:1100px; --d:.25s" src="assets/substitute.png" alt="m360 Editing Material List with the Change to Alternative action">
+    <div class="abs in-box in-rec reveal" style="left:1250px; top:375px; width:550px; height:265px; --d:.3s"><div class="k ed">My recommendation</div><p class="ed" style="font-size:26px">User needs a live, centralized source of truth (material list) tied to each individual substation project that supports material substitution.</p></div>
+    <div class="abs in-box in-imp reveal" style="left:1250px; top:670px; width:550px; height:264px; --d:.45s"><div class="k ed">Decision impact</div><p class="ed">Product/Design made substitution handling a core requirement.</p></div>
+</section>
+
+<!-- =========================================================
+     16 — RESEARCH CHANGED THREE PRODUCT DECISIONS: scope · user + workflow model · designed capabilities
+     ========================================================= -->
+<section class="slide" data-sec="2" data-title="Outcome — research changed product decisions">
+    <h2 class="abs h-m rd-h ed reveal">Research moved the team from extending an existing experience to <span class="hl">designing for the actual Substation material workflow.</span></h2>
+    <img class="abs shot reveal" style="left:345px; top:300px; width:1230px; --d:.2s" src="assets/cap.png" alt="Research to Design: m360 capabilities for Substation materials">
+</section>
+
+<!-- =========================================================
+     16 — RESEARCH CHANGED THREE PRODUCT DECISIONS: scope · user + workflow model · designed capabilities
+     ========================================================= -->
+<section class="slide" data-sec="2" data-title="Outcome — solution across the material lifecycle" data-samepage>
+    <h2 class="abs h-m rd-h ed">Research moved the team from extending an existing experience to <span class="hl">designing for the actual Substation material workflow.</span></h2>
+    <img class="abs shot reveal" style="left:286px; top:300px; width:1347px; --d:.1s" src="assets/solution-lifecycle.png" alt="Research to Design: solution across the Substation material lifecycle">
+</section>
+
+<!-- =========================================================
+     16 — CLOSE
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix" data-chrome="off">
+    <svg class="flow" viewBox="0 0 1920 1080" fill="none" aria-hidden="true">
+        <path class="dash" d="M110 190 H640" stroke="#19B39A" stroke-width="3"/>
+        <circle cx="110" cy="190" r="9" fill="#19B39A"/>
+        <path class="draw" d="M1100 850 H1800" stroke="#F2A33A" stroke-width="3"/>
+        <circle cx="1100" cy="850" r="9" fill="#F2A33A"/>
+        <circle cx="1800" cy="850" r="9" fill="#F2A33A"/>
+    </svg>
+    <div class="abs t-label ed reveal">Thank you</div>
+    <h2 class="abs h-xl c-q ed reveal" style="--d:.2s">Appendix</h2>
+</section>
+
+<section class="slide" data-title="Appendix — Six role-based personas" data-label="Yao Guan · Appendix" data-still>
+    <h2 class="abs ap-t ed reveal">Six role-based personas.</h2>
+    <img class="abs shot reveal" style="left:120px; top:181px; width:1680px; height:794px" src="assets/six-personas.png" alt="Substation materials: six personas">
+</section>
+
+<section class="slide" data-title="Appendix — User Pain Points and Solution" data-label="Yao Guan · Appendix" data-still>
+    <h2 class="abs ap-t ed reveal">User Pain Points and Solution.</h2>
+    <img class="abs shot reveal" style="left:247px; top:118px; width:1425px; height:920px" src="assets/pinpoint-capabilities.png" alt="Which user pain points do the proposed solution address: capability-to-pain mapping">
+</section>
+
+<!-- =========================================================
+     APPENDIX — A real share-out example
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix — Real share-out example" data-label="Yao Guan · Appendix">
+    <h2 class="abs ap-t ed reveal">A real <span class="hl">share-out</span> example</h2>
+    <div class="abs an-ph reveal" style="left:120px; top:280px; width:1680px; height:596px; --d:.15s"><img src="assets/share1.png" alt="Quick share-out deck for the team: Round 1 SME interviews research share-out"></div>
+</section>
+
+<!-- =========================================================
+     APPENDIX — Substitute materials — where the handoff breaks down
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix — Material Substitution Process (handoff)" data-label="Yao Guan · Appendix">
+    <h2 class="abs ap-t ed reveal">Material Substitution Process.</h2>
+    <img class="abs shot reveal" style="left:141px; top:118px; width:1637px; height:920px" src="assets/substitute-process.png" alt="Diagram: substitute material process across Designer, Purchasing and Depot">
+</section>
+
+<!-- =========================================================
+     APPENDIX — Minor-material lifecycle — ecosystem pain map (V4)
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix — Ecosystem Pain Map" data-label="Yao Guan · Appendix">
+    <h2 class="abs ap-t ed reveal">Ecosystem Pain Map.</h2>
+    <img class="abs shot reveal" style="left:436px; top:118px; width:1047px; height:920px" src="assets/ap-lifecycle-pain-map.png" alt="Fragmented Material Lists leave each role with only part of the picture">
+</section>
+
+<!-- =========================================================
+     APPENDIX — End-to-end minor-material workflow (V4)
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix — End-to-End Minor Material Workflow" data-label="Yao Guan · Appendix">
+    <h2 class="abs ap-t ed reveal">End-to-End Minor Material Workflow.</h2>
+    <img class="abs shot reveal" style="left:255px; top:118px; width:1409px; height:920px" src="assets/end-to-end-workflow.png" alt="End-to-end minor material workflow: from substation design to material readiness for construction">
+</section>
+
+<!-- =========================================================
+     APPENDIX — Roles and relationships (V4)
+     ========================================================= -->
+<section class="slide" data-still data-title="Appendix — Roles and Relationships" data-label="Yao Guan · Appendix">
+    <h2 class="abs ap-t ed reveal">Roles and Relationships.</h2>
+    <img class="abs shot reveal" style="left:340px; top:118px; width:1239px; height:920px" src="assets/ap-roles-v4.png" alt="Roles and relationships">
+</section>
+
+</main>
+</div>
+
+<!-- Navigation UI outside the stage -->
+<aside id="thumbs" aria-label="All slides"></aside>
+<canvas id="ink"></canvas>
+<div id="laser"></div>
+<div id="penHint">Pen on — drag to draw · C clears · X turns off pen and clears</div>
+<div class="zone zone-l" id="zoneL" title="Previous"></div>
+<div class="zone zone-r" id="zoneR" title="Next"></div>
+<div class="deck-nav" id="deckNav">
+    <button id="navPrev" aria-label="Previous slide">‹</button>
+    <button id="navCount" class="count" aria-label="All slides">1 / 1</button>
+    <button id="navNext" aria-label="Next slide">›</button>
+</div>
+<div class="goto" id="goto"></div>
+<div class="picker" id="picker"><div class="picker-box"><div class="picker-h">Jump to slide<span>click one · G or Esc to close</span></div><div class="picker-list" id="pickerList"></div></div></div>
+
+<!-- Deck UI outside the stage -->
+<div class="progress" id="progress"></div>
+<div class="edit-hotzone" id="editHotzone"></div>
+<button class="edit-toggle" id="editToggle" title="Edit mode (E)">Edit</button>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===========================================================
+   SLIDE PRESENTATION CONTROLLER
+   - Fixed 1920×1080 stage scaled to the window
+   - Keyboard, touch, on-screen arrows, click zones, slide picker (G), type a number + Enter,
+     #hash deep links that also work when edited in the address bar (#5.2 = slide 5, step 2)
+   - Build steps: next key reveals data-step groups before moving on
+   - No wheel nav on purpose: trackpad inertia skips slides
+   =========================================================== */
+class SlidePresentation {
+    constructor() {
+        this.stage = document.getElementById('deckStage');
+        this.slides = Array.from(document.querySelectorAll('.slide'));
+        this.progress = document.getElementById('progress');
+        this.current = 0;
+        this.step = 0;
+        // Build steps: highest data-step on each slide (0 = no builds)
+        this.maxSteps = this.slides.map(s => Math.max(0, ...Array.from(s.querySelectorAll('[data-step],[data-until]')).map(e => Math.max(+e.dataset.step || 0, +e.dataset.until || 0))));
+        this.showAll = /[?&]all\b/.test(location.search);   // ?all shows every build (handy for PDF export)
+        this.injectChrome();
+        this.setupThumbs();
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupExtras();
+        this.setupPointer();
+        window.addEventListener('beforeprint', () => this.slides.forEach((sl, i) => this.applyStep(sl, this.maxSteps[i])));
+        window.addEventListener('afterprint', () => this.applyStep());
+        const m = location.hash.match(/^#(\d+)(?:\.(\d+))?$/);   // #5 or #5.2 (slide 5, step 2)
+        this.show(m ? parseInt(m[1], 10) - 1 : 0, m && m[2] ? parseInt(m[2], 10) : 0);
+    }
+
+    /* Dashed rule, label and page count on every slide except the title and close */
+    injectChrome() {
+        const isApp = (sl) => /appendix/i.test(sl.dataset.label || '');
+        const nums = this.slides.map((sl, i) => (sl.dataset.samepage !== undefined ? i : i + 1));   // a data-samepage slide shows the number of the slide before it
+        const main = this.slides.length;                            // one numbering system for the whole deck, appendix included
+        const apps = this.slides.filter(isApp).length;
+        /* Audience index: three parts centred above the green line; the green line is part of it (data-sec) */
+        const SECS = ['The Case', 'My Approach', 'The Impact'];
+        let appNo = 0;
+        this.slides.forEach((slide, i) => {
+            const app = isApp(slide);
+            if (app) appNo++;
+            if (i === 0 || slide.querySelector('.chrome') || slide.querySelector('.pgn')) return;
+            if (slide.dataset.chrome === 'off') {          // no top bar here, but the page index still shows (top right)
+                const q = document.createElement('div');
+                q.className = 'pgn';
+                q.textContent = String(nums[i]).padStart(2, '0') + ' / ' + String(main).padStart(2, '0');
+                slide.appendChild(q);
+                return;
+            }
+            const sec = slide.dataset.sec === undefined ? -1 : +slide.dataset.sec;
+            const name = '';
+            const c = document.createElement('div');
+            c.className = 'chrome';
+            c.innerHTML = (name ? '<span class="label">' + name + '</span>' : '') + '<div class="bar"></div>';
+            if (sec >= 0) {
+                const t = document.createElement('div');
+                t.className = 'trk';
+                t.innerHTML = SECS.map((n, k) => '<span class="seg' + (k === sec ? ' on' : '') + '" data-k="' + k + '">' + n + '</span>').join('');
+                t.addEventListener('click', (e) => {          // click a part to jump to its first slide
+                    const seg = e.target.closest('.seg');
+                    if (!seg) return;
+                    const first = this.slides.findIndex((sl) => sl.dataset.sec !== undefined && +sl.dataset.sec === +seg.dataset.k && !isApp(sl));
+                    if (first >= 0) this.show(first, 0);
+                });
+                c.appendChild(t);
+            }
+            slide.prepend(c);
+            const p = document.createElement('div');
+            p.className = 'pgn';
+            p.textContent = String(nums[i]).padStart(2, '0') + ' / ' + String(main).padStart(2, '0');
+            slide.appendChild(p);
+        });
+    }
+
+    setupStageScale() {
+        const scale = () => {
+            const side = document.body.classList.contains('has-thumbs') ? 240 : 0;   // slide sorter width
+            const W = window.innerWidth - side;
+            const f = Math.min(W / 1920, window.innerHeight / 1080);
+            const x = side + (W - 1920 * f) / 2;
+            const y = (window.innerHeight - 1080 * f) / 2;
+            this.stage.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + f + ')';
+        };
+        this.updateLayout = () => {
+            const on = !document.fullscreenElement && window.innerWidth >= 900 && !this.thumbsHidden;
+            document.body.classList.toggle('has-thumbs', on);
+            scale();
+        };
+        this.updateLayout();
+        window.addEventListener('resize', this.updateLayout);
+        document.addEventListener('fullscreenchange', this.updateLayout);
+    }
+
+    /* Slide sorter: a live miniature of every slide on the left; click one to jump to it */
+    setupThumbs() {
+        const aside = document.getElementById('thumbs');
+        if (!aside) return;
+        this.thumbs = [];
+        this.slides.forEach((sl, i) => {
+            const row = document.createElement('div');
+            row.className = 'th';
+            row.innerHTML = '<span class="n">' + (i + 1) + '</span><div class="box"><div class="inner"></div></div>';
+            const c = sl.cloneNode(true);
+            c.classList.remove('active', 'visible', 'no-anim');
+            c.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
+            c.querySelectorAll('.ed').forEach((e) => e.classList.remove('ed'));     // keep the editor away from the miniatures
+            c.querySelectorAll('[data-until]').forEach((e) => e.remove());
+            c.querySelectorAll('.build').forEach((e) => e.classList.add('on'));     // show every build step
+            row.querySelector('.inner').appendChild(c);
+            row.addEventListener('click', () => this.show(i, 0));
+            aside.appendChild(row);
+            this.thumbs.push(row);
+        });
+    }
+
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable || this.pickerOpen) return;
+            const k = e.key;
+            if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); this.next(); }
+            else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(k)) { e.preventDefault(); this.prev(); }
+            else if ((k === 'l' || k === 'L') && !e.metaKey && !e.ctrlKey) this.setPointer(this.pointerMode === 'laser' ? null : 'laser');   // L = red laser dot
+            else if ((k === 'p' || k === 'P') && !e.metaKey && !e.ctrlKey) this.setPointer(this.pointerMode === 'pen' ? null : 'pen');       // P = pen
+            else if ((k === 'c' || k === 'C') && !e.metaKey && !e.ctrlKey) this.clearInk();                                                  // C = clear drawing
+            else if (((k === 'x' || k === 'X') && !e.metaKey && !e.ctrlKey) || (k === 'Escape' && this.pointerMode)) { this.setPointer(null); this.clearInk(); }   // X = pen / dot off and clear
+            else if (k === 'Home') this.show(0, 0);
+            else if ((k === 'a' || k === 'A') && !e.metaKey && !e.ctrlKey && !e.altKey) {   // A = appendix on / off (back to where you were)
+                const isApp = (sl) => /appendix/i.test(sl.dataset.label || '');
+                if (isApp(this.slides[this.current])) {
+                    this.show(this.backTo !== undefined ? this.backTo : this.slides.findIndex(isApp) - 1, 0);
+                } else {
+                    const first = this.slides.findIndex(isApp);
+                    if (first >= 0) { this.backTo = this.current; this.show(first, 0); }
+                }
+            }
+            else if (k === 't' || k === 'T') { this.thumbsHidden = !this.thumbsHidden; this.updateLayout(); }   // T = slide sorter on / off
+            else if ((k === 'f' || k === 'F') && !e.metaKey && !e.ctrlKey) {   // F = full screen on / off
+                if (document.fullscreenElement) document.exitFullscreen();
+                else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+            }
+            else if (k === 'End') this.show(this.slides.length - 1, this.maxSteps[this.slides.length - 1]);
+        });
+    }
+
+    /* On-screen arrows, slide counter/picker, click zones, type-a-number jump, address-bar jump */
+    /* Laser pointer (L) and pen (P) for presenting over a screen share */
+    setupPointer() {
+        const body = document.body, ink = document.getElementById('ink'), dot = document.getElementById('laser'), hint = document.getElementById('penHint');
+        if (!ink || !dot) return;
+        const g = ink.getContext('2d');
+        let drawing = false, hideT = 0;
+        const fit = () => { ink.width = window.innerWidth; ink.height = window.innerHeight; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#ff2b2b'; g.lineWidth = 6; };
+        fit();
+        window.addEventListener('resize', fit);
+        this.clearInk = () => g.clearRect(0, 0, ink.width, ink.height);
+        this.setPointer = (mode) => {
+            body.classList.toggle('laser', mode === 'laser');
+            body.classList.toggle('pen', mode === 'pen');
+            this.pointerMode = mode;
+            if (mode === 'pen') { hint.classList.add('show'); clearTimeout(hideT); hideT = setTimeout(() => hint.classList.remove('show'), 3500); } else hint.classList.remove('show');
+        };
+        window.addEventListener('mousemove', (e) => { dot.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)'; });
+        ink.addEventListener('pointerdown', (e) => { drawing = true; g.beginPath(); g.moveTo(e.clientX, e.clientY); g.lineTo(e.clientX + 0.1, e.clientY + 0.1); g.stroke(); ink.setPointerCapture(e.pointerId); });
+        ink.addEventListener('pointermove', (e) => { if (!drawing) return; g.lineTo(e.clientX, e.clientY); g.stroke(); });
+        const end = () => { drawing = false; };
+        ink.addEventListener('pointerup', end); ink.addEventListener('pointercancel', end);
+    }
+
+    setupExtras() {
+        const total = this.slides.length;
+        const $ = (id) => document.getElementById(id);
+        const nav = $('deckNav'), picker = $('picker'), list = $('pickerList'), goto = $('goto');
+        this.pickerOpen = false;
+
+        // arrows + click zones
+        $('navPrev').addEventListener('click', () => this.prev());
+        $('navNext').addEventListener('click', () => this.next());
+        $('zoneL').addEventListener('click', () => this.prev());
+        $('zoneR').addEventListener('click', () => this.next());
+
+        // controls fade out when idle
+        let idleT = null;
+        const wake = () => { nav.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => nav.classList.add('idle'), 2600); };
+        ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, wake, { passive: true }));
+        wake();
+
+        // slide picker
+        const buildPicker = () => {
+            list.innerHTML = '';
+            this.slides.forEach((sl, i) => {
+                const b = document.createElement('button');
+                b.className = 'picker-item' + (i === this.current ? ' cur' : '');
+                b.innerHTML = '<b>' + String(i + 1).padStart(2, '0') + '</b><span></span>';
+                b.lastChild.textContent = sl.dataset.title || ('Slide ' + (i + 1));
+                b.addEventListener('click', () => { closePicker(); this.show(i, 0); });
+                list.appendChild(b);
+            });
+        };
+        const openPicker = () => { buildPicker(); picker.classList.add('open'); this.pickerOpen = true; };
+        const closePicker = () => { picker.classList.remove('open'); this.pickerOpen = false; };
+        this.togglePicker = () => (this.pickerOpen ? closePicker() : openPicker());
+        $('navCount').addEventListener('click', this.togglePicker);
+        picker.addEventListener('click', (e) => { if (e.target === picker) closePicker(); });
+
+        // type a slide number (then Enter, or just wait a moment)
+        let buf = '', bufT = null;
+        const showBuf = () => { goto.textContent = 'Go to slide ' + buf; goto.classList.add('show'); };
+        const clearBuf = () => { buf = ''; goto.classList.remove('show'); clearTimeout(bufT); };
+        const commit = () => { const n = parseInt(buf, 10); clearBuf(); if (n >= 1 && n <= total) this.show(n - 1, 0); };
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key === 'Escape') { if (this.pickerOpen) closePicker(); clearBuf(); return; }
+            if (e.key === 'g' || e.key === 'G') { e.preventDefault(); this.togglePicker(); return; }
+            if (this.pickerOpen) return;
+            if (/^[0-9]$/.test(e.key)) {
+                buf = (buf + e.key).slice(0, 2);
+                showBuf(); clearTimeout(bufT); bufT = setTimeout(commit, 1200);
+            } else if (e.key === 'Enter' && buf) {
+                e.preventDefault(); e.stopImmediatePropagation(); commit();
+            } else if (buf && e.key === 'Backspace') {
+                buf = buf.slice(0, -1); buf ? showBuf() : clearBuf();
+            }
+        }, true);
+
+        // changing the #number in the address bar jumps without reloading
+        window.addEventListener('hashchange', () => {
+            const m = location.hash.match(/^#(\d+)(?:\.(\d+))?$/);
+            if (!m) return;
+            const idx = parseInt(m[1], 10) - 1, st = m[2] ? parseInt(m[2], 10) : 0;
+            if (idx !== this.current || st !== this.step) this.show(idx, st);
+        });
+    }
+
+    setupTouchNav() {
+        let sx = 0, sy = 0;
+        document.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - sx;
+            const dy = e.changedTouches[0].clientY - sy;
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { if (dx < 0) this.next(); else this.prev(); }
+        }, { passive: true });
+    }
+
+    /* Next: reveal the next build step, or move to the next slide when none are left */
+    next() {
+        if (this.step < this.maxSteps[this.current]) this.setStep(this.step + 1);
+        else if (this.current < this.slides.length - 1) this.show(this.current + 1, 0);
+    }
+
+    /* Prev: hide the last build step, or go back (showing the previous slide fully built) */
+    prev() {
+        if (this.step > 0) this.setStep(this.step - 1);
+        else if (this.current > 0) this.show(this.current - 1, this.maxSteps[this.current - 1]);
+    }
+
+    setStep(n) {
+        this.step = n;
+        this.applyStep();
+        this.updateHash();
+    }
+
+    /* Elements show from data-step and (optionally) hide again from data-until */
+    applyStep(slide = this.slides[this.current], step = this.step) {
+        const eff = this.showAll ? this.maxSteps[this.slides.indexOf(slide)] : step;
+        slide.querySelectorAll('[data-step],[data-until]').forEach(el => {
+            const from = +el.dataset.step || 0;
+            const until = el.dataset.until ? +el.dataset.until : Infinity;
+            el.classList.toggle('on', eff >= from && eff < until);
+        });
+    }
+
+    updateHash() {
+        history.replaceState(null, '', '#' + (this.current + 1) + (this.step ? '.' + this.step : ''));
+    }
+
+    show(index, step = 0) {
+        this.current = Math.max(0, Math.min(index, this.slides.length - 1));
+        this.step = Math.max(0, Math.min(step, this.maxSteps[this.current]));
+        this.slides.forEach((s, i) => {
+            s.classList.toggle('active', i === this.current);
+            s.classList.toggle('visible', i === this.current);
+        });
+        // Apply the starting step without animating (so step 0 and "coming back" are instant)
+        const slide = this.slides[this.current];
+        slide.classList.add('no-anim');
+        this.applyStep();
+        void slide.offsetWidth;
+        requestAnimationFrame(() => slide.classList.remove('no-anim'));
+        this.progress.style.width = ((this.current + 1) / this.slides.length * 100) + '%';
+        const cnt = document.getElementById('navCount'); if (cnt) cnt.textContent = (this.current + 1) + ' / ' + this.slides.length;
+        if (this.thumbs) this.thumbs.forEach((t, k) => { t.classList.toggle('on', k === this.current); if (k === this.current) t.scrollIntoView({ block: 'nearest' }); });
+        if (this.clearInk) this.clearInk();
+        this.updateHash();
+    }
+}
+
+/* ===========================================================
+   INLINE EDITING
+   - Hover the top-left corner or press E to toggle edit mode
+   - Click any text to edit; changes auto-save to localStorage
+   - Ctrl/Cmd+S saves the HTML file (save over index.html to keep it)
+   - Text is editable wherever an element has class "ed"
+   =========================================================== */
+class InlineEditor {
+    constructor() {
+        this.BUILD = 'm360-case-study-blueprint-v262';   // bump to discard stale saved edits
+        this.sel = '.slide .ed';
+        this.active = false;
+        this.toggle = document.getElementById('editToggle');
+        this.hot = document.getElementById('editHotzone');
+        this.toastEl = document.getElementById('toast');
+        this.restore();
+        this.bind();
+    }
+
+    nodes() { return Array.from(document.querySelectorAll(this.sel)); }
+
+    restore() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(this.BUILD) || 'null');
+            if (saved && saved.length === this.nodes().length) this.nodes().forEach((n, i) => { n.innerHTML = saved[i]; });
+        } catch (e) { /* storage unavailable: ignore */ }
+    }
+
+    save() {
+        try { localStorage.setItem(this.BUILD, JSON.stringify(this.nodes().map(n => n.innerHTML))); } catch (e) { /* ignore */ }
+    }
+
+    toast(msg) {
+        this.toastEl.textContent = msg;
+        this.toastEl.classList.add('show');
+        setTimeout(() => this.toastEl.classList.remove('show'), 1800);
+    }
+
+    setEdit(on) {
+        this.active = on;
+        document.body.classList.toggle('editing', on);
+        this.toggle.classList.toggle('active', on);
+        this.toggle.classList.toggle('show', on);
+        this.toggle.textContent = on ? 'Editing · E to exit' : 'Edit';
+        this.nodes().forEach(n => { if (on) n.setAttribute('contenteditable', 'true'); else n.removeAttribute('contenteditable'); });
+        if (!on) this.save();
+    }
+
+    async saveFile() {
+        const wasActive = this.active;
+        this.setEdit(false);
+        const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        try {
+            if (window.showSaveFilePicker) {
+                const h = await window.showSaveFilePicker({ suggestedName: 'index.html', types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }] });
+                const w = await h.createWritable(); await w.write(html); await w.close();
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+                a.download = 'index.html'; a.click();
+            }
+            this.toast('Saved');
+        } catch (e) { /* cancelled */ }
+        if (wasActive) this.setEdit(true);
+    }
+
+    bind() {
+        let hide = null;
+        this.hot.addEventListener('mouseenter', () => { clearTimeout(hide); this.toggle.classList.add('show'); });
+        this.hot.addEventListener('mouseleave', () => { hide = setTimeout(() => { if (!this.active) this.toggle.classList.remove('show'); }, 400); });
+        this.toggle.addEventListener('mouseenter', () => clearTimeout(hide));
+        this.toggle.addEventListener('mouseleave', () => { hide = setTimeout(() => { if (!this.active) this.toggle.classList.remove('show'); }, 400); });
+        this.toggle.addEventListener('click', () => this.setEdit(!this.active));
+        this.hot.addEventListener('click', () => this.setEdit(!this.active));
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'e' || e.key === 'E') && !e.target.isContentEditable && !e.metaKey && !e.ctrlKey) this.setEdit(!this.active);
+            if (e.key === 'Escape' && this.active) this.setEdit(false);
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); this.saveFile(); }
+        });
+        document.addEventListener('input', () => { if (this.active) { clearTimeout(this._t); this._t = setTimeout(() => this.save(), 400); } });
+    }
+}
+
+new SlidePresentation();
+new InlineEditor();
+</script>
+</body>
+</html>
